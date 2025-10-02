@@ -1,5 +1,8 @@
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, NoSubscriberBehavior, AudioPlayerStatus } = require("@discordjs/voice");
-const path = require("path");
+const { 
+    joinVoiceChannel, 
+    createAudioPlayer, 
+    NoSubscriberBehavior 
+} = require("@discordjs/voice");
 
 const connections = new Map();
 
@@ -18,19 +21,14 @@ function handleVoiceCommand(command, message) {
             selfDeaf: false
         });
 
+        // Tạo player nhưng không cần phát resource
         const player = createAudioPlayer({
             behaviors: { noSubscriber: NoSubscriberBehavior.Play }
         });
 
-        const resource = createAudioResource(path.join(__dirname, "silence.mp3"));
-        player.play(resource);
-
-        // loop lại sau khi phát xong
-        player.on(AudioPlayerStatus.Idle, () => {
-            player.play(createAudioResource(path.join(__dirname, "silence.mp3")));
-        });
-
+        // Chỉ cần subscribe player để giữ kết nối
         connection.subscribe(player);
+
         connections.set(message.guild.id, { connection, player });
 
         return message.reply(`🔊 Bot đã vào kênh: **${channel.name}** và sẽ treo 24/7`);
