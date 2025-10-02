@@ -3,16 +3,28 @@ const {
     createAudioPlayer, 
     createAudioResource, 
     NoSubscriberBehavior, 
-    AudioPlayerStatus,
-    StreamType
+    AudioPlayerStatus 
 } = require("@discordjs/voice");
 const path = require("path");
-
-// dùng ffmpeg từ package
+const { spawn } = require("child_process");
 const ffmpeg = require("@ffmpeg-installer/ffmpeg");
-process.env.FFMPEG_PATH = ffmpeg.path;
 
 const connections = new Map();
+
+function createSilenceResource(filePath) {
+    // dùng ffmpeg để decode mp3 -> PCM
+    const ffmpegProcess = spawn(ffmpeg.path, [
+        "-i", filePath,       // input file
+        "-analyzeduration", "0",
+        "-loglevel", "0",
+        "-f", "s16le",        // PCM 16bit
+        "-ar", "48000",       // sample rate
+        "-ac", "2",           // stereo
+        "pipe:1"
+    ], { stdio: ["ignore", "pipe", "ignore"] });
+
+    return createAudioResource(ffmpegProcess.stdout);
+}
 
 function handleVoiceCommand(command, message) {
     if (command === "join") {
@@ -34,25 +46,17 @@ function handleVoiceCommand(command, message) {
         });
 
         const silencePath = path.join(__dirname, "silence.mp3");
-        const resource = createAudioResource(silencePath, {
-            inputType: StreamType.Arbitrary
-        });
+        let resource = createSilenceResource(silencePath);
 
         player.play(resource);
 
         player.on(AudioPlayerStatus.Idle, () => {
-            player.play(createAudioResource(silencePath, {
-                inputType: StreamType.Arbitrary
-            }));
+            resource = createSilenceResource(silencePath); // tạo stream mới
+            player.play(resource);
         });
 
-        player.on("error", (error) => {
-            console.error("⚠️ Lỗi player:", error.message);
-        });
-
-        connection.on("error", (err) => {
-            console.error("⚠️ Lỗi connection:", err.message);
-        });
+        player.on("error", (err) => console.error("⚠️ Player error:", err.message));
+        connection.on("error", (err) => console.error("⚠️ Connection error:", err.message));
 
         connection.subscribe(player);
         connections.set(message.guild.id, { connection, player });
