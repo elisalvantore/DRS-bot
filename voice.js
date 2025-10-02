@@ -7,6 +7,10 @@ const {
 } = require("@discordjs/voice");
 const path = require("path");
 
+// 👇 thêm dòng này để dùng ffmpeg từ package @ffmpeg-installer/ffmpeg
+const ffmpeg = require("@ffmpeg-installer/ffmpeg");
+process.env.FFMPEG_PATH = ffmpeg.path;
+
 const connections = new Map();
 
 function handleVoiceCommand(command, message) {
@@ -28,13 +32,20 @@ function handleVoiceCommand(command, message) {
             behaviors: { noSubscriber: NoSubscriberBehavior.Play }
         });
 
-        // phát silence.mp3
-        const resource = createAudioResource(path.join(__dirname, "silence.mp3"));
+        // phát file silence.mp3
+        const silencePath = path.join(__dirname, "silence.mp3");
+        const resource = createAudioResource(silencePath);
+
         player.play(resource);
 
         // loop lại khi phát xong
         player.on(AudioPlayerStatus.Idle, () => {
-            player.play(createAudioResource(path.join(__dirname, "silence.mp3")));
+            player.play(createAudioResource(silencePath));
+        });
+
+        // nếu có lỗi thì log ra, tránh crash bot
+        player.on("error", (error) => {
+            console.error("⚠️ Lỗi player:", error.message);
         });
 
         connection.subscribe(player);
