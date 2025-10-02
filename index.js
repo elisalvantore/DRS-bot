@@ -17,7 +17,7 @@ const client = new Client({
 client.cooldowns = new Collection();
 
 // Bot ready
-client.once("ready", () => {
+client.once("clientReady", () => {
     console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
 });
 
