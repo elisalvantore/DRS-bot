@@ -16,8 +16,8 @@ async function handleVoiceCommand(command, message) {
       channelId: channel.id,
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
-      selfDeaf: false, // không tự tắt nghe
-      selfMute: false, // không tự tắt mic
+      selfDeaf: false,
+      selfMute: false,
     });
 
     const player = createAudioPlayer();
@@ -44,22 +44,25 @@ async function handleVoiceCommand(command, message) {
 
 // === HÀM TỰ Ở LẠI KÊNH VOICE 24/7 ===
 async function stayInChannel(client) {
-  // ID máy chủ và ID kênh voice mà bạn muốn bot ở lại 24/7
   const GUILD_ID = "1409910972788899852";      // ⚠️ Thay bằng ID thật
   const VOICE_CHANNEL_ID = "1411311590539657276";   // ⚠️ Thay bằng ID thật
 
   const guild = await client.guilds.fetch(GUILD_ID).catch(() => null);
   if (!guild) return console.log("❌ Không tìm thấy máy chủ 24/7.");
 
-  const channel = guild.channels.cache.get(VOICE_CHANNEL_ID);
-  if (!channel) return console.log("❌ Không tìm thấy kênh voice 24/7.");
+  let channel = guild.channels.cache.get(VOICE_CHANNEL_ID);
+  if (!channel) {
+    channel = await guild.channels.fetch(VOICE_CHANNEL_ID).catch(() => null);
+  }
+  if (!channel || channel.type !== 2)
+    return console.log("❌ Không phải kênh voice hợp lệ.");
 
   const connection = joinVoiceChannel({
     channelId: channel.id,
     guildId: guild.id,
     adapterCreator: guild.voiceAdapterCreator,
     selfDeaf: false,
-    selfMute: false, // tắt mic để tiết kiệm tài nguyên
+    selfMute: false,
   });
 
   connection.on(VoiceConnectionStatus.Ready, () => {
