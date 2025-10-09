@@ -68,6 +68,11 @@ async function stayInChannel(client) {
     selfMute: false,
   });
 
+  const player = createAudioPlayer();
+  const resource = createAudioResource(path.join(__dirname, "silence.mp3"), { inlineVolume: true });
+  player.play(resource);
+  connection.subscribe(player);
+
   connection.on(VoiceConnectionStatus.Ready, () => {
     console.log(`🎧 Bot đã vào kênh voice 24/7: ${channel.name}`);
   });
