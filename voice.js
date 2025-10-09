@@ -5,6 +5,7 @@ const {
   entersState,
   createAudioPlayer
 } = require("@discordjs/voice");
+const path = require("path");
 
 // === HÀM THAM GIA KÊNH VOICE ===
 async function handleVoiceCommand(command, message) {
@@ -21,6 +22,8 @@ async function handleVoiceCommand(command, message) {
     });
 
     const player = createAudioPlayer();
+    const resource = createAudioResource(path.join(__dirname, "silence.mp3"), { inlineVolume: true });
+    player.play(resource);
     connection.subscribe(player);
 
     connection.on(VoiceConnectionStatus.Ready, () => {
