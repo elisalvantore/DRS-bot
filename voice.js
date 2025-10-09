@@ -1,78 +1,55 @@
-const { 
-    joinVoiceChannel, 
-    createAudioPlayer, 
-    createAudioResource, 
-    NoSubscriberBehavior, 
-    AudioPlayerStatus 
-} = require("@discordjs/voice");
-const path = require("path");
-const { spawn } = require("child_process");
-const ffmpeg = require("@ffmpeg-installer/ffmpeg");
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
+const path = require('path');
 
-const connections = new Map();
+let connection;
+let player;
 
-function createSilenceResource(filePath) {
-    // dùng ffmpeg để decode mp3 -> PCM
-    const ffmpegProcess = spawn(ffmpeg.path, [
-        "-i", filePath,       // input file
-        "-analyzeduration", "0",
-        "-loglevel", "0",
-        "-f", "s16le",        // PCM 16bit
-        "-ar", "48000",       // sample rate
-        "-ac", "2",           // stereo
-        "pipe:1"
-    ], { stdio: ["ignore", "pipe", "ignore"] });
-
-    return createAudioResource(ffmpegProcess.stdout);
+// Tạo resource từ file silence.mp3
+function createSilenceResource() {
+  const filePath = path.join(__dirname, 'silence.mp3');
+  return createAudioResource(filePath);
 }
 
-function handleVoiceCommand(command, message) {
-    if (command === "join") {
-        if (!message.member.voice.channel) {
-            return message.reply("❌ Bạn phải vào voice channel trước đã!");
-        }
+// Hàm để bot join kênh voice và phát nhạc 24/7
+async function joinAndPlayForever(voiceChannel) {
+  try {
+    // Kết nối voice
+    connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: voiceChannel.guild.id,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      selfDeaf: false,  // không tắt mic
+      selfMute: false   // không tắt loa
+    });
 
-        const channel = message.member.voice.channel;
+    player = createAudioPlayer();
 
-        const connection = joinVoiceChannel({
-            channelId: channel.id,
-            guildId: channel.guild.id,
-            adapterCreator: channel.guild.voiceAdapterCreator,
-            selfDeaf: false
-        });
+    // Khi audio kết thúc -> phát lại để giữ kết nối
+    player.on(AudioPlayerStatus.Idle, () => {
+      console.log('🔁 Phát lại silence.mp3 để giữ kết nối');
+      player.play(createSilenceResource());
+    });
 
-        const player = createAudioPlayer({
-            behaviors: { noSubscriber: NoSubscriberBehavior.Play }
-        });
+    // Xử lý lỗi
+    player.on('error', error => {
+      console.error('⚠️ Lỗi khi phát audio:', error.message);
+      player.play(createSilenceResource());
+    });
 
-        const silencePath = path.join(__dirname, "silence.mp3");
-        let resource = createSilenceResource(silencePath);
+    // Bắt đầu phát
+    const resource = createSilenceResource();
+    player.play(resource);
 
-        player.play(resource);
+    // Kết nối player với voice
+    connection.subscribe(player);
 
-        player.on(AudioPlayerStatus.Idle, () => {
-            resource = createSilenceResource(silencePath); // tạo stream mới
-            player.play(resource);
-        });
-
-        player.on("error", (err) => console.error("⚠️ Player error:", err.message));
-        connection.on("error", (err) => console.error("⚠️ Connection error:", err.message));
-
-        connection.subscribe(player);
-        connections.set(message.guild.id, { connection, player });
-
-        return message.reply(`🔊 Bot đã vào kênh: **${channel.name}** và sẽ treo 24/7`);
-    }
-
-    if (command === "leave") {
-        const connData = connections.get(message.guild.id);
-        if (!connData) {
-            return message.reply("⚠️ Bot không ở trong voice channel nào!");
-        }
-        connData.connection.destroy();
-        connections.delete(message.guild.id);
-        return message.reply("👋 Bot đã rời khỏi voice channel.");
-    }
+    // Đảm bảo kết nối ổn định
+    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+    console.log('✅ Bot đã vào voice và đang phát 24/7!');
+  } catch (error) {
+    console.error('❌ Không thể vào voice:', error);
+  }
 }
 
-module.exports = { handleVoiceCommand };
+// Xuất hàm cho file index.js gọi
+module.exports = { joinAndPlayForever };

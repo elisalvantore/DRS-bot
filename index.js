@@ -1,70 +1,31 @@
-require("dotenv").config();
-const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
-const { handleVoiceCommand } = require("./voice");
+require('dotenv').config();
+const express = require('express');
+const { Client, GatewayIntentBits } = require('discord.js');
+const { stayInChannel } = require('./voice');
 
-const PREFIX = process.env.PREFIX || "d!"; // Lấy prefix từ .env hoặc mặc định là d!
+// === Tạo server Express để giữ cho bot luôn "active" ===
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => res.send('✅ Bot DRS đang hoạt động 24/7!'));
+app.listen(PORT, () => console.log(`🌐 Web server chạy trên cổng ${PORT}`));
+
+// === Cấu hình bot Discord ===
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
-    ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 });
 
-// Cooldowns để tránh spam
-client.cooldowns = new Collection();
+client.once('ready', async () => {
+  console.log(`🤖 Bot đã đăng nhập: ${client.user.tag}`);
 
-// Bot ready
-client.once("clientReady", () => {
-    console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
+  try {
+    const guild = await client.guilds.fetch('1409910972788899852'); // 🧩 ID server discord
+    const channel = await guild.channels.fetch('1411311590539657276'); // 🧩 ID kênh voice
+
+    stayInChannel(channel);
+  } catch (error) {
+    console.error('❌ Lỗi khi vào kênh voice:', error);
+  }
 });
-
-// Nhận lệnh
-client.on("messageCreate", async (message) => {
-    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
-
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    // ⏳ Cooldown: 2s mỗi user
-    const now = Date.now();
-    const cooldownAmount = 2000;
-    if (client.cooldowns.has(message.author.id)) {
-        const expirationTime = client.cooldowns.get(message.author.id) + cooldownAmount;
-        if (now < expirationTime) {
-            const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-            return message.reply(`⏳ Vui lòng đợi ${timeLeft}s trước khi dùng lệnh tiếp.`);
-        }
-    }
-    client.cooldowns.set(message.author.id, now);
-
-    // 🏓 Lệnh test ping
-    if (command === "ping") {
-        return message.reply("🏓 Pong!");
-    }
-
-    // 🎙️ Lệnh voice (đã xử lý trong voice.js)
-    if (["join", "leave"].includes(command)) {
-        return handleVoiceCommand(command, message);
-    }
-
-    // ❓ Nếu lệnh không hợp lệ
-    return message.reply("❌ Lệnh không hợp lệ. Hãy thử: `d!ping`, `d!join`, `d!leave`");
-});
-
-// Xử lý lỗi toàn cục
-process.on("unhandledRejection", (error) => {
-    console.error("❌ Lỗi ngoài dự kiến:", error);
-});
-client.on("error", (err) => console.error("❌ Bot gặp lỗi:", err));
-client.on("warn", (info) => console.warn("⚠️ Cảnh báo:", info));
-
-// Kiểm tra TOKEN trước khi login
-if (!process.env.TOKEN) {
-    console.error("❌ Thiếu TOKEN trong biến môi trường!");
-    process.exit(1);
-}
 
 client.login(process.env.TOKEN);
