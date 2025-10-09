@@ -1,31 +1,37 @@
-require('dotenv').config();
-const express = require('express');
-const { Client, GatewayIntentBits } = require('discord.js');
-const { stayInChannel } = require('./voice');
+const { Client, GatewayIntentBits } = require("discord.js");
+const { handleVoiceCommand, stayInChannel } = require("./voice");
+require("dotenv").config();
 
-// === Tạo server Express để giữ cho bot luôn "active" ===
-const app = express();
-const PORT = process.env.PORT || 3000;
+const PREFIX = "d!";
 
-app.get('/', (req, res) => res.send('✅ Bot DRS đang hoạt động 24/7!'));
-app.listen(PORT, () => console.log(`🌐 Web server chạy trên cổng ${PORT}`));
-
-// === Cấu hình bot Discord ===
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates
+    ]
 });
 
-client.once('ready', async () => {
-  console.log(`🤖 Bot đã đăng nhập: ${client.user.tag}`);
+client.once("clientReady", () => {
+    console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
+    stayInChannel(client); // Giữ bot ở kênh voice 24/7
+});
 
-  try {
-    const guild = await client.guilds.fetch('1409910972788899852'); // 🧩 ID server discord
-    const channel = await guild.channels.fetch('1411311590539657276'); // 🧩 ID kênh voice
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return;
+    if (!message.content.startsWith(PREFIX)) return;
 
-    stayInChannel(channel);
-  } catch (error) {
-    console.error('❌ Lỗi khi vào kênh voice:', error);
-  }
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    if (command === "ping") {
+        return message.reply("🏓 Pong!");
+    }
+
+    if (["join", "leave"].includes(command)) {
+        return handleVoiceCommand(command, message);
+    }
 });
 
 client.login(process.env.TOKEN);
