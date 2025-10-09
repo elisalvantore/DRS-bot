@@ -1,5 +1,4 @@
 const { Client, GatewayIntentBits } = require("discord.js");
-const { handleVoiceCommand, stayInChannel } = require("./voice");
 require("dotenv").config();
 
 const PREFIX = "d!";
@@ -8,14 +7,13 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.MessageContent
     ]
 });
 
-client.once("ready", () => {
+client.once("clientReady", () => {
     console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
-    stayInChannel(client); // Giữ bot ở kênh voice 24/7
+    client.user.setActivity("Đang chơi PUBG cùng DRS! ❤️", { type: "PLAYING" });
 });
 
 client.on("messageCreate", async (message) => {
@@ -26,16 +24,13 @@ client.on("messageCreate", async (message) => {
     const command = args.shift().toLowerCase();
 
     if (command === "ping") {
-        return message.reply("🏓 Pong!");
-    }
-
-    if (["join", "leave"].includes(command)) {
-        return handleVoiceCommand(command, message);
+        return message.reply(`🏓 Pong! Ping: ${client.ws.ping}ms`);
     }
 });
 
 client.login(process.env.TOKEN);
 
+// Health check server
 const express = require("express");
 const app = express();
 const PORT = process.env.PORT || 8000;

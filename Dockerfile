@@ -1,9 +1,6 @@
 # Sử dụng image Node.js chính thức
 FROM node:20
 
-# Cài đặt FFmpeg
-RUN apt-get update && apt-get install -y ffmpeg
-
 # Tạo thư mục app
 WORKDIR /usr/src/app
 
@@ -16,8 +13,8 @@ RUN npm install
 # Copy toàn bộ mã nguồn vào container
 COPY . .
 
-# Cấu hình cổng (nếu cần)
-EXPOSE 3000
+# Cấu hình cổng health check
+EXPOSE 8000
 
 # Lệnh chạy bot
 CMD ["node", "index.js"]
