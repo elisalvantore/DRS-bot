@@ -13,7 +13,7 @@ const client = new Client({
     ]
 });
 
-client.once("clientReady", () => {
+client.once("ready", () => {
     console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
     stayInChannel(client); // Giữ bot ở kênh voice 24/7
 });
@@ -35,3 +35,10 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.get("/", (req, res) => res.send("Bot is running!"));
+app.listen(PORT, () => console.log(`Health check server on port ${PORT}`));
