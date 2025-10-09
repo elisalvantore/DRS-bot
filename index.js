@@ -11,7 +11,7 @@ const client = new Client({
     ]
 });
 
-client.once("clientReady", () => {
+client.once("ready", () => {
     console.log(`✅ Bot đã đăng nhập thành công với tên: ${client.user.tag}`);
     client.user.setActivity("Đang chơi PUBG cùng DRS! ❤️", { type: "PLAYING" });
 });
