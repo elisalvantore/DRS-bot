@@ -1,93 +1,73 @@
-const { 
-  joinVoiceChannel, 
-  createAudioPlayer, 
-  createAudioResource, 
-  AudioPlayerStatus, 
-  VoiceConnectionStatus, 
-  entersState 
-} = require('@discordjs/voice');
-const path = require('path');
+const {
+  joinVoiceChannel,
+  getVoiceConnection,
+  VoiceConnectionStatus,
+  entersState,
+  createAudioPlayer
+} = require("@discordjs/voice");
 
-let connection;
-let player;
-
-// === Tạo audio im lặng để giữ bot không bị ngắt ===
-function createSilenceResource() {
-  const filePath = path.join(__dirname, 'silence.mp3');
-  return createAudioResource(filePath);
-}
-
-// === Hàm phát audio im lặng vĩnh viễn ===
-async function joinAndPlayForever(voiceChannel) {
-  try {
-    connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: voiceChannel.guild.id,
-      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: false,
-      selfMute: false
-    });
-
-    player = createAudioPlayer();
-
-    player.on(AudioPlayerStatus.Idle, () => {
-      console.log('🔁 Phát lại silence.mp3 để giữ kết nối');
-      player.play(createSilenceResource());
-    });
-
-    player.on('error', err => {
-      console.error('⚠️ Lỗi khi phát audio:', err.message);
-      player.play(createSilenceResource());
-    });
-
-    const resource = createSilenceResource();
-    player.play(resource);
-    connection.subscribe(player);
-
-    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-    console.log('✅ Bot đã vào voice và đang phát 24/7!');
-  } catch (err) {
-    console.error('❌ Không thể vào voice:', err);
-  }
-}
-
-// === Lệnh join/leave theo người dùng ===
+// === HÀM THAM GIA KÊNH VOICE ===
 async function handleVoiceCommand(command, message) {
-  const voiceChannel = message.member?.voice?.channel;
-  if (!voiceChannel) return message.reply("⚠️ Bạn phải vào kênh voice trước!");
+  const channel = message.member?.voice?.channel;
+  if (!channel) return message.reply("⚠️ Bạn cần vào một kênh voice trước!");
 
   if (command === "join") {
-    await joinAndPlayForever(voiceChannel);
-    return message.reply("✅ Bot đã vào kênh voice!");
+    const connection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: channel.guild.id,
+      adapterCreator: channel.guild.voiceAdapterCreator,
+      selfDeaf: false, // không tự tắt nghe
+      selfMute: false, // không tự tắt mic
+    });
+
+    const player = createAudioPlayer();
+    connection.subscribe(player);
+
+    connection.on(VoiceConnectionStatus.Ready, () => {
+      console.log(`🔊 Bot đã vào kênh voice: ${channel.name}`);
+      message.reply(`✅ Đã vào kênh voice: **${channel.name}** và sẽ ở lại 24/7.`);
+    });
+
+    connection.on("error", (error) => {
+      console.error("❌ Lỗi voice:", error);
+    });
   }
 
   if (command === "leave") {
-    if (connection) {
-      connection.destroy();
-      connection = null;
-      return message.reply("👋 Bot đã rời khỏi kênh voice!");
-    } else {
-      return message.reply("❌ Bot chưa ở trong kênh voice nào!");
-    }
+    const connection = getVoiceConnection(message.guild.id);
+    if (!connection) return message.reply("⚠️ Bot hiện không ở trong kênh voice nào.");
+
+    connection.destroy();
+    message.reply("👋 Đã rời kênh voice.");
   }
 }
 
-// === Giữ bot 24/7 trong 1 kênh cố định ===
-function stayInChannel(client) {
-  const GUILD_ID = "1409910972788899852";
-  const VOICE_CHANNEL_ID = "1411311590539657276";
+// === HÀM TỰ Ở LẠI KÊNH VOICE 24/7 ===
+async function stayInChannel(client) {
+  // ID máy chủ và ID kênh voice mà bạn muốn bot ở lại 24/7
+  const GUILD_ID = "1409910972788899852";      // ⚠️ Thay bằng ID thật
+  const VOICE_CHANNEL_ID = "1411311590539657276";   // ⚠️ Thay bằng ID thật
 
-  client.once("ready", async () => {
-    try {
-      const guild = await client.guilds.fetch(GUILD_ID);
-      const channel = await guild.channels.fetch(VOICE_CHANNEL_ID);
-      if (channel && channel.isVoiceBased()) {
-        console.log("🔊 Bot đang tự vào kênh voice 24/7...");
-        await joinAndPlayForever(channel);
-      }
-    } catch (err) {
-      console.error("⚠️ Lỗi khi tự vào voice:", err);
-    }
+  const guild = await client.guilds.fetch(GUILD_ID).catch(() => null);
+  if (!guild) return console.log("❌ Không tìm thấy máy chủ 24/7.");
+
+  const channel = guild.channels.cache.get(VOICE_CHANNEL_ID);
+  if (!channel) return console.log("❌ Không tìm thấy kênh voice 24/7.");
+
+  const connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: false,
+    selfMute: false, // tắt mic để tiết kiệm tài nguyên
+  });
+
+  connection.on(VoiceConnectionStatus.Ready, () => {
+    console.log(`🎧 Bot đã vào kênh voice 24/7: ${channel.name}`);
+  });
+
+  connection.on("error", (error) => {
+    console.error("❌ Lỗi kết nối voice 24/7:", error);
   });
 }
 
